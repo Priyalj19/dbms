@@ -1,0 +1,54 @@
+DROP PROCEDURE IF EXISTS place_order;
+DELIMITER $$
+
+CREATE PROCEDURE place_order(
+    IN p_customer_id INT,
+    IN p_product_id  INT,
+    IN p_qty         INT
+)
+BEGIN
+    DECLARE v_price    INT;
+    DECLARE v_stock    INT;
+    DECLARE v_discount INT;
+    DECLARE v_total    INT;
+    DECLARE v_cashback INT;
+
+    -- Get product details
+    SELECT price, stock, discount
+    INTO v_price, v_stock, v_discount
+    FROM product2
+    WHERE product_id = p_product_id;
+
+    -- Check stock
+    IF v_stock < p_qty THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Not enough stock available';
+    ELSE
+        -- Reduce stock
+        UPDATE product2
+        SET stock = stock - p_qty
+        WHERE product_id = p_product_id;
+
+        -- Calculate total with discount + GST
+        SET v_total = (v_price * p_qty);
+        SET v_total = v_total - (v_total * v_discount / 100);   -- apply discount
+        SET v_total = v_total + (v_total * 18 / 100);           -- add 18% GST
+
+        -- Random cashback (0–100)
+        SET v_cashback = FLOOR(RAND() * 101);
+
+        -- Insert order
+        INSERT INTO orders (customer_id, product_id, qty, total_price, cashback)
+        VALUES (p_customer_id, p_product_id, p_qty, v_total, v_cashback);
+
+        SELECT 'Order placed successfully!' AS message,
+               v_total AS final_bill,
+               v_cashback AS cashback_received;
+    END IF;
+END$$
+
+DELIMITER ;
+
+
+
+
