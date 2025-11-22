@@ -1,0 +1,47 @@
+1. Banking – Fund Transfer Procedure
+•	Write a procedure transfer_funds(p_from_acc, p_to_acc, p_amount)
+•	Deduct amount from sender, add to receiver.
+•	If balance is insufficient then all transactions should be rollbacked.
+•	Insert a log entry into transaction_history.
+
+
+
+DROP PROCEDURE IF EXISTS transfer_funds;
+DELIMITER $$
+
+CREATE PROCEDURE transfer_funds(
+    IN p_from_acc INT,
+    IN p_to_acc   INT,
+    IN p_amount   INT
+)
+BEGIN
+    DECLARE v_balance INT;
+
+    START TRANSACTION;
+
+    SELECT balance INTO v_balance
+    FROM accounts
+    WHERE acc_no = p_from_acc
+    FOR UPDATE;
+
+    IF v_balance < p_amount THEN
+        ROLLBACK;
+        SELECT 'Insufficient funds. Transaction rolled back.' AS message;
+    ELSE
+        UPDATE accounts
+        SET balance = balance - p_amount
+        WHERE acc_no = p_from_acc;
+
+        UPDATE accounts
+        SET balance = balance + p_amount
+        WHERE acc_no = p_to_acc;
+
+        INSERT INTO transaction_history (from_acc, to_acc, amount, txn_date)
+        VALUES (p_from_acc, p_to_acc, p_amount, CURDATE());
+
+        COMMIT;
+        SELECT 'Transaction successful.' AS message;
+    END IF;
+END$$
+
+DELIMITER ;
